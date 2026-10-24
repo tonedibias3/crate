@@ -1,5 +1,5 @@
 import { CONFIG } from "./config.js";
-import { makeApi } from "./api.js?v=9";
+import { makeApi } from "./api.js?v=10";
 
 /* ======================================================================
    helpers
@@ -787,11 +787,7 @@ function collectionBody(items, mode, { empty = "" } = {}) {
       </div>
       <div class="crate-front" aria-hidden="true"></div>
     </div>
-    <div class="now-wrap" data-open="${pref.get("cinfo", "open") !== "closed"}">
-      <button class="now-toggle" data-act="now-toggle" aria-expanded="${pref.get("cinfo", "open") !== "closed"}" aria-label="Show or hide record details"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
-      <div class="now" aria-live="polite"></div>
-      <p class="crate-hint">Swipe to flip. Tap the front record to open it.</p>
-    </div>`;
+    <div class="now sr-only" aria-live="polite"></div>`;
 }
 
 function initCrate() {
@@ -1314,13 +1310,6 @@ const ACT = {
   "set-theme": (el) => {
     applyTheme(el.dataset.id);
     document.querySelectorAll(".theme").forEach((b) => b.setAttribute("aria-pressed", String(b === el)));
-  },
-  "now-toggle": (el) => {
-    const wrap = el.closest(".now-wrap");
-    const open = wrap.dataset.open !== "true";
-    wrap.dataset.open = String(open);
-    el.setAttribute("aria-expanded", String(open));
-    pref.set("cinfo", open ? "open" : "closed");
   },
   cview: (el) => {
     pref.set("cview", el.dataset.mode);
