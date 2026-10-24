@@ -333,13 +333,15 @@ img { display: block; max-width: 100%; }
 .topbar .demo-tag { color: rgba(246,234,211,.75); border-color: rgba(246,234,211,.35); }
 
 /* ---------- collection: view toggle ---------- */
-.view-toggle { width: 150px; }
+.view-toggle { width: 150px; flex: none; }
+.toggle-row { display: flex; gap: 10px; align-items: stretch; }
+.csort { flex: 1; min-width: 0; min-height: 0; }
 .head-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
 
 /* ---------- crate (side view, flip through) ---------- */
-.letters { display: flex; gap: 4px; overflow-x: auto; margin: 16px -16px 0; padding: 0 16px 4px; scrollbar-width: none; }
+.letters { display: flex; gap: 3px; overflow-x: auto; margin: 8px -16px 10px; padding: 0 16px 0; scrollbar-width: none; }
 .letters::-webkit-scrollbar { display: none; }
-.letter { flex: none; min-width: 30px; height: 36px; padding: 0 6px; border: 0; border-radius: 4px 4px 0 0; background: var(--tab-ink); color: #cdbfa6; font: 700 13px var(--font-body); }
+.letter { flex: none; min-width: 24px; height: 24px; padding: 0 5px; border: 0; border-radius: 4px 4px 0 0; background: var(--tab-ink); color: #cdbfa6; font: 700 11px var(--font-body); }
 .letter[aria-current="true"] { background: var(--accent); color: var(--on-accent); }
 .crate-wrap { position: relative; margin: 0 -16px; }
 .crate {

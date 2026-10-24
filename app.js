@@ -1,5 +1,5 @@
 import { CONFIG } from "./config.js";
-import { makeApi } from "./api.js?v=10";
+import { makeApi } from "./api.js?v=11";
 
 /* ======================================================================
    helpers
@@ -658,6 +658,12 @@ document.addEventListener("touchmove", (e) => {
 
 let searchTimer;
 document.addEventListener("input", (e) => {
+  if (e.target.dataset?.input === "csort") {
+    pref.set("csort", e.target.value);
+    if (location.hash.startsWith("#/collection")) { $("#cbody").innerHTML = collectionBody(state.collectionItems, cview()); initCrate(); }
+    else renderProfile();
+    return;
+  }
   if (e.target.dataset?.input === "sort") { state.search.sort = e.target.value; renderSearchOut(); return; }
   if (e.target.dataset?.input !== "search") return;
   const s = state.search;
@@ -741,6 +747,11 @@ async function submitAdd(form) {
       toast("Added to your wantlist.");
     }
     closeSheet();
+    resetSearch();
+    const qi = $("#q");
+    if (qi) qi.value = "";
+    const clr = $(".search-clear");
+    if (clr) clr.hidden = true;
     renderSearchOut();
     refreshBadge();
   } catch (e) {
@@ -760,27 +771,33 @@ const tile = (it) => `<button class="tile" data-act="open-item" data-item="${esc
 /* ---------- the crate: side view, flip through ---------- */
 
 const SLOT = 70;
-const initialOf = (artist) => {
-  const m = String(artist || "").replace(/^the\s+/i, "").match(/[a-z0-9]/i);
+const initialOf = (text) => {
+  const m = String(text || "").replace(/^(the|a|an)\s+/i, "").match(/[a-z0-9]/i);
   if (!m) return "#";
   return /[a-z]/i.test(m[0]) ? m[0].toUpperCase() : "#";
 };
-const crateSort = (items) =>
-  [...items].sort((a, b) =>
-    String(a.release.artist).replace(/^the\s+/i, "").localeCompare(String(b.release.artist).replace(/^the\s+/i, ""), undefined, { sensitivity: "base" }) ||
-    String(a.release.title).localeCompare(String(b.release.title), undefined, { sensitivity: "base" }));
+const csort = () => ["artist", "title", "year", "added"].includes(pref.get("csort", "artist")) ? pref.get("csort", "artist") : "artist";
+const cmpText = (x, y) => String(x).replace(/^(the|a|an)\s+/i, "").localeCompare(String(y).replace(/^(the|a|an)\s+/i, ""), undefined, { sensitivity: "base" });
+const crateSort = (items, key = "artist") =>
+  [...items].sort((a, b) => {
+    const A = a.release, B = b.release;
+    if (key === "title") return cmpText(A.title, B.title) || cmpText(A.artist, B.artist);
+    if (key === "year") return (A.year || 9999) - (B.year || 9999) || cmpText(A.artist, B.artist);
+    if (key === "added") return Date.parse(b.created_at) - Date.parse(a.created_at);
+    return cmpText(A.artist, B.artist) || cmpText(A.title, B.title);
+  });
 
 function collectionBody(items, mode, { empty = "" } = {}) {
   if (!items.length) return empty;
   if (mode === "grid") return `<div class="grid3">${items.map(tile).join("")}</div>`;
-  const list = crateSort(items);
+  const key = csort();
+  const list = crateSort(items, key);
   state.crate = list;
-  const letters = [...new Map(list.map((it, i) => [initialOf(it.release.artist), i])).entries()].reverse();
   const first = new Map();
-  list.forEach((it, i) => { const L = initialOf(it.release.artist); if (!first.has(L)) first.set(L, i); });
+  if (key === "artist" || key === "title") list.forEach((it, i) => { const L = initialOf(it.release[key]); if (!first.has(L)) first.set(L, i); });
   return `
-    <div class="letters" role="group" aria-label="Jump to letter">${[...first].map(([L, i]) =>
-      `<button class="letter" data-act="crate-jump" data-idx="${i}" data-letter="${esc(L)}">${esc(L)}</button>`).join("")}</div>
+    ${first.size ? `<div class="letters" role="group" aria-label="Jump to letter">${[...first].map(([L, i]) =>
+      `<button class="letter" data-act="crate-jump" data-idx="${i}" data-letter="${esc(L)}">${esc(L)}</button>`).join("")}</div>` : ""}
     <div class="crate-wrap">
       <div class="crate" tabindex="0" role="listbox" aria-label="Your crate. Swipe sideways to flip through records.">
         ${list.map((it, i) => `<button class="slot" role="option" data-act="crate-slot" data-idx="${i}" aria-label="${esc(it.release.title)} by ${esc(it.release.artist)}"><span class="sleeve">${coverImg(it.release)}</span></button>`).join("")}
@@ -826,7 +843,7 @@ function initCrate() {
       if (it) {
         const r = it.release;
         now.innerHTML = `<div class="short">${esc(r.title)} <span>${esc(r.artist)}</span></div><div class="title">${esc(r.title)}</div><div class="artist">${esc(r.artist)}</div><div class="meta">${esc([r.year, it.condition === "Not graded" ? "" : it.condition].filter(Boolean).join(", "))}</div>`;
-        const L = initialOf(r.artist);
+        const L = initialOf(r[csort()] ?? r.artist);
         letterBtns.forEach((b) => b.setAttribute("aria-current", String(b.dataset.letter === L)));
       }
     }
@@ -846,9 +863,10 @@ const cview = () => (pref.get("cview", "crate") === "grid" ? "grid" : "crate");
 
 function viewToggle() {
   const m = cview();
-  return `<div class="seg view-toggle" role="group" aria-label="Collection view">
+  return `<div class="toggle-row"><div class="seg view-toggle" role="group" aria-label="Collection view">
     <button data-act="cview" data-mode="crate" aria-pressed="${m === "crate"}">Crate</button>
-    <button data-act="cview" data-mode="grid" aria-pressed="${m === "grid"}">Grid</button></div>`;
+    <button data-act="cview" data-mode="grid" aria-pressed="${m === "grid"}">Grid</button></div>
+    <select class="input csort" data-input="csort" aria-label="Sort collection">${[["artist", "Artist A to Z"], ["title", "Album A to Z"], ["year", "Year, oldest first"], ["added", "Recently added"]].map(([v, l]) => `<option value="${v}"${csort() === v ? " selected" : ""}>${l}</option>`).join("")}</select></div>`;
 }
 
 async function viewCollection(token) {
@@ -1034,7 +1052,7 @@ function ledges(list, render) {
 
 function wallHtml() {
   const { items, wants, isMe } = state.profile;
-  const rot = crateSort(items.filter((i) => i.featured));
+  const rot = crateSort(items.filter((i) => i.featured), "artist");
   const hunt = wants.filter((w) => w.featured);
   if (!isMe && !rot.length && !hunt.length) return "";
   const section = (title, kind, count, body, emptyMsg) => `
@@ -1132,7 +1150,7 @@ function openSettings() {
 
 function openWallPicker(kind) {
   const own = kind === "own";
-  const list = own ? crateSort(state.profile.items) : state.profile.wants;
+  const list = own ? crateSort(state.profile.items, "artist") : state.profile.wants;
   const n = list.filter((x) => x.featured).length;
   openSheet(`
     <h2>${own ? "In rotation" : "In search of"}</h2>
