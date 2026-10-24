@@ -622,7 +622,12 @@ async function runSearch(reset = true) {
 // While typing, hide the bars so the keyboard leaves room for results.
 // Return/Search closes the keyboard, and so does scrolling the results.
 document.addEventListener("focusin", (e) => { if (e.target.dataset?.input === "search") document.body.classList.add("typing"); });
-document.addEventListener("focusout", (e) => { if (e.target.dataset?.input === "search") document.body.classList.remove("typing"); });
+let typingOff;
+document.addEventListener("focusin", (e) => { if (e.target.dataset?.input === "search") clearTimeout(typingOff); });
+// small delay so a tap on a result isn't lost when the bars slide back in
+document.addEventListener("focusout", (e) => {
+  if (e.target.dataset?.input === "search") typingOff = setTimeout(() => document.body.classList.remove("typing"), 400);
+});
 document.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && e.target.dataset?.input === "search") { e.preventDefault(); clearTimeout(searchTimer); if (state.search.q.length >= 2) runSearch(true); e.target.blur(); }
 });
