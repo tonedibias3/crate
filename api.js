@@ -63,7 +63,7 @@ function makeLiveApi(sb) {
   }
 
   const ITEM_SELECT =
-    "id,user_id,release_id,condition,notes,created_at,releases(*),profiles(username,avatar_url),likes(count)";
+    "id,user_id,release_id,condition,notes,featured,created_at,releases(*),profiles(username,avatar_url),likes(count)";
 
   async function decorate(rows) {
     const me = await uid();
@@ -79,6 +79,7 @@ function makeLiveApi(sb) {
       release_id: Number(r.release_id),
       condition: r.condition,
       notes: r.notes,
+      featured: Boolean(r.featured),
       created_at: r.created_at,
       release: r.releases,
       owner: r.profiles,
@@ -201,7 +202,7 @@ function makeLiveApi(sb) {
         return ok(
           await sb
             .from("wantlist_items")
-            .select("id,user_id,release_id,master_id,any_pressing,created_at,releases(*)")
+            .select("id,user_id,release_id,master_id,any_pressing,featured,created_at,releases(*)")
             .eq("user_id", userId)
             .order("created_at", { ascending: false }),
         ).map((w) => ({ ...w, release_id: Number(w.release_id), release: w.releases }));
@@ -217,6 +218,9 @@ function makeLiveApi(sb) {
       },
       async setAny(id, any) {
         ok(await sb.from("wantlist_items").update({ any_pressing: any }).eq("id", id).select().single());
+      },
+      async setFeatured(id, on) {
+        ok(await sb.from("wantlist_items").update({ featured: on }).eq("id", id).select().single());
       },
       async remove(id) {
         ok(await sb.from("wantlist_items").delete().eq("id", id));
@@ -344,6 +348,10 @@ function makeDemoApi() {
     ["me", 401, "Near Mint", "Bought at the Augusta record fair.", 300],
     ["me", 300, "Very Good Plus", "", 290],
     ["me", 500, "Mint", "Sealed.", 280],
+    ["me", 101, "Near Mint", "", 270],
+    ["me", 900, "Very Good", "", 260],
+    ["me", 700, "Good", "Flea market find.", 250],
+    ["me", 1000, "Near Mint", "", 240],
     ["u1", 101, "Near Mint", "", 2],
     ["u1", 900, "Very Good", "", 20],
     ["u2", 200, "Very Good Plus", "First UK pressing.", 5],
@@ -353,8 +361,9 @@ function makeDemoApi() {
     ["u4", 600, "Very Good", "Original UK pressing, light ring wear.", 12],
     ["u4", 400, "Very Good Plus", "", 60],
   ].filter(([, r]) => rel(r)).map(([user_id, release_id, condition, notes, hrs]) => ({
-    id: nextId("i"), user_id, release_id, condition, notes, created_at: ago(hrs),
+    id: nextId("i"), user_id, release_id, condition, notes, created_at: ago(hrs), featured: false,
   }));
+  items.filter((i) => i.user_id === "me").slice(0, 4).forEach((i) => (i.featured = true));
 
   let wants = [
     ["me", 100, true, 100],
@@ -366,7 +375,7 @@ function makeDemoApi() {
     ["u4", 901, true, 25],
   ].map(([user_id, release_id, any, hrs]) => ({
     id: nextId("w"), user_id, release_id, master_id: rel(release_id).discogs_master_id,
-    any_pressing: any, created_at: ago(hrs),
+    any_pressing: any, created_at: ago(hrs), featured: user_id === "me" || user_id === "u4",
   }));
 
   const follows = new Set([`${ME}>u1`, `${ME}>u2`, "u1>me"]);
@@ -455,7 +464,10 @@ function makeDemoApi() {
         items.push({ id: nextId("i"), user_id: ME, release_id: releaseId, condition, notes, created_at: new Date().toISOString() });
         return delay();
       },
-      async update(id, patch) { Object.assign(items.find((i) => i.id === id), patch); return delay(); },
+      async update(id, patch) {
+        if (patch.featured && items.filter((i) => i.user_id === ME && i.featured && i.id !== id).length >= 6) throw new Error("You can show up to 6 records on the wall. Remove one first.");
+        Object.assign(items.find((i) => i.id === id), patch); return delay();
+      },
       async remove(id) { items = items.filter((i) => i.id !== id); return delay(); },
     },
 
@@ -468,11 +480,15 @@ function makeDemoApi() {
         if (wants.some((w) => w.user_id === ME && w.release_id === release.discogs_release_id)) throw new Error("That pressing is already on your wantlist.");
         wants.unshift({
           id: nextId("w"), user_id: ME, release_id: release.discogs_release_id, master_id: release.discogs_master_id,
-          any_pressing: Boolean(anyPressing && release.discogs_master_id), created_at: new Date().toISOString(),
+          any_pressing: Boolean(anyPressing && release.discogs_master_id), created_at: new Date().toISOString(), featured: false,
         });
         return delay();
       },
       async setAny(id, any) { wants.find((w) => w.id === id).any_pressing = any; return delay(); },
+      async setFeatured(id, on) {
+        if (on && wants.filter((w) => w.user_id === ME && w.featured && w.id !== id).length >= 6) throw new Error("You can show up to 6 records on the wall. Remove one first.");
+        wants.find((w) => w.id === id).featured = on; return delay();
+      },
       async remove(id) { wants = wants.filter((w) => w.id !== id); return delay(); },
     },
 

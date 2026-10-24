@@ -20,6 +20,7 @@ const ICON = {
   search: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg>',
   collection: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="2.6"/></svg>',
   wantlist: '<svg viewBox="0 0 24 24"><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z"/></svg>',
+  gear: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
   heart: '<svg viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/></svg>',
 };
 
@@ -163,6 +164,27 @@ document.addEventListener("keydown", (e) => {
 });
 
 /* ======================================================================
+   themes and small preferences (stored on this device only)
+   ====================================================================== */
+
+const THEMES = [
+  { id: "walnut", name: "Walnut", note: "Dark wood, amber lamp light", colors: ["#6a4528", "#1b130d", "#e3a233"], bar: "#4b2f1a" },
+  { id: "daylight", name: "Daylight", note: "Cream tin ceiling, oak, brick red", colors: ["#b98655", "#eadfc6", "#b4452b"], bar: "#96673c" },
+  { id: "midnight", name: "Midnight", note: "Dark and cool, the original", colors: ["#2f2f3b", "#0f0f13", "#4b6bfa"], bar: "#0f0f13" },
+];
+const pref = {
+  get(k, d) { try { return localStorage.getItem("crate-" + k) || d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("crate-" + k, v); } catch { /* private mode */ } },
+};
+function applyTheme(id) {
+  const t = THEMES.find((x) => x.id === id) || THEMES[0];
+  document.documentElement.setAttribute("data-theme", t.id);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t.bar);
+  pref.set("theme", t.id);
+}
+applyTheme(pref.get("theme", "walnut"));
+
+/* ======================================================================
    state
    ====================================================================== */
 
@@ -195,7 +217,8 @@ function renderChrome() {
   const demoTag = state.api.mode === "demo" ? '<span class="demo-tag">Demo</span>' : "";
   $("#topbar").innerHTML =
     `<a class="wordmark" href="#/matches" aria-label="Crate home"><span class="dot"></span>Crate${demoTag}</a>` +
-    `<a class="avatar-btn" href="#/u/${esc(state.me.username)}" aria-label="Your profile">${avatar(state.me, 36)}</a>`;
+    `<div class="topbar-right"><button class="icon-btn" data-act="settings" aria-label="Settings">${ICON.gear}</button>` +
+    `<a class="avatar-btn" href="#/u/${esc(state.me.username)}" aria-label="Your profile">${avatar(state.me, 36)}</a></div>`;
   $("#tabs").innerHTML = TABS.map(
     ([id, label]) =>
       `<button class="tab" data-act="tab" data-tab="${id}" id="tab-${id}">${ICON[id]}<span>${label}</span></button>`,
@@ -644,11 +667,107 @@ async function submitAdd(form) {
 
 const tile = (it) => `<button class="tile" data-act="open-item" data-item="${esc(it.id)}">${coverImg(it.release, { alt: true })}</button>`;
 
+/* ---------- the crate: side view, flip through ---------- */
+
+const SLOT = 70;
+const initialOf = (artist) => {
+  const m = String(artist || "").replace(/^the\s+/i, "").match(/[a-z0-9]/i);
+  if (!m) return "#";
+  return /[a-z]/i.test(m[0]) ? m[0].toUpperCase() : "#";
+};
+const crateSort = (items) =>
+  [...items].sort((a, b) =>
+    String(a.release.artist).replace(/^the\s+/i, "").localeCompare(String(b.release.artist).replace(/^the\s+/i, ""), undefined, { sensitivity: "base" }) ||
+    String(a.release.title).localeCompare(String(b.release.title), undefined, { sensitivity: "base" }));
+
+function collectionBody(items, mode, { empty = "" } = {}) {
+  if (!items.length) return empty;
+  if (mode === "grid") return `<div class="grid3">${items.map(tile).join("")}</div>`;
+  const list = crateSort(items);
+  state.crate = list;
+  const letters = [...new Map(list.map((it, i) => [initialOf(it.release.artist), i])).entries()].reverse();
+  const first = new Map();
+  list.forEach((it, i) => { const L = initialOf(it.release.artist); if (!first.has(L)) first.set(L, i); });
+  return `
+    <div class="letters" role="group" aria-label="Jump to letter">${[...first].map(([L, i]) =>
+      `<button class="letter" data-act="crate-jump" data-idx="${i}" data-letter="${esc(L)}">${esc(L)}</button>`).join("")}</div>
+    <div class="crate-wrap">
+      <div class="crate" tabindex="0" role="listbox" aria-label="Your crate. Swipe sideways to flip through records.">
+        ${list.map((it, i) => `<button class="slot" role="option" data-act="crate-slot" data-idx="${i}" aria-label="${esc(it.release.title)} by ${esc(it.release.artist)}"><span class="sleeve">${coverImg(it.release)}</span></button>`).join("")}
+      </div>
+      <div class="crate-front" aria-hidden="true"></div>
+    </div>
+    <div class="now" aria-live="polite"></div>
+    <p class="crate-hint">Swipe to flip. Tap the front record to open it.</p>`;
+}
+
+function initCrate() {
+  const el = $(".crate");
+  if (!el) return;
+  const slots = [...el.querySelectorAll(".slot")];
+  const now = $(".now");
+  const letterBtns = [...document.querySelectorAll(".letter")];
+  el.style.paddingInline = Math.max(0, (el.clientWidth - SLOT) / 2) + "px";
+  let raf = 0;
+  let center = -1;
+  const paint = () => {
+    raf = 0;
+    const pos = el.scrollLeft / SLOT;
+    const c = Math.max(0, Math.min(slots.length - 1, Math.round(pos)));
+    for (let i = 0; i < slots.length; i++) {
+      const o = i - pos, a = Math.abs(o);
+      const sleeve = slots[i].firstElementChild;
+      if (a > 9) {
+        if (slots[i].dataset.far !== String(Math.sign(o))) {
+          slots[i].dataset.far = String(Math.sign(o));
+          sleeve.style.transform = `translateX(${Math.sign(o) * 80}px) rotateY(${-Math.sign(o) * 58}deg)`;
+          slots[i].style.zIndex = 0;
+        }
+        continue;
+      }
+      delete slots[i].dataset.far;
+      const near = Math.min(a, 1), sg = Math.sign(o);
+      sleeve.style.transform = `translateX(${sg * 80 * near}px) translateY(${(1 - near) * -16}px) rotateY(${-sg * 58 * near}deg) scale(${1 + (1 - near) * 0.07})`;
+      slots[i].style.zIndex = String(1000 - Math.round(a * 10));
+    }
+    if (c !== center) {
+      center = c;
+      el.dataset.center = String(c);
+      const it = state.crate[c];
+      if (it) {
+        const r = it.release;
+        now.innerHTML = `<div class="title">${esc(r.title)}</div><div class="artist">${esc(r.artist)}</div><div class="meta">${esc([r.year, it.condition].filter(Boolean).join(", "))}</div>`;
+        const L = initialOf(r.artist);
+        letterBtns.forEach((b) => b.setAttribute("aria-current", String(b.dataset.letter === L)));
+      }
+    }
+  };
+  const queue = () => { if (!raf) raf = requestAnimationFrame(paint); };
+  el.addEventListener("scroll", queue, { passive: true });
+  el.addEventListener("keydown", (e) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const next = Math.max(0, Math.min(slots.length - 1, center + (e.key === "ArrowRight" ? 1 : -1)));
+    el.scrollTo({ left: next * SLOT, behavior: "smooth" });
+  });
+  paint();
+}
+
+const cview = () => (pref.get("cview", "crate") === "grid" ? "grid" : "crate");
+
+function viewToggle() {
+  const m = cview();
+  return `<div class="seg view-toggle" role="group" aria-label="Collection view">
+    <button data-act="cview" data-mode="crate" aria-pressed="${m === "crate"}">Crate</button>
+    <button data-act="cview" data-mode="grid" aria-pressed="${m === "grid"}">Grid</button></div>`;
+}
+
 async function viewCollection(token) {
   if (!setView(token, `<h1 class="page-title">Collection</h1>${skeleton(3)}`)) return;
   const items = await state.api.collection.list(state.userId);
   if (token !== renderToken) return;
   remember(items);
+  state.collectionItems = items;
   if (!items.length) {
     setView(token, `<h1 class="page-title">Collection</h1>
       <div class="empty"><h2 class="headline">Your crate is empty.</h2>
@@ -657,10 +776,12 @@ async function viewCollection(token) {
     return;
   }
   setView(token, `
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px">
+    <div class="head-row">
       <div><h1 class="page-title">Collection</h1><p class="sub">${plural(items.length, "record", "records")}</p></div>
       <a class="btn btn-ghost btn-sm" href="#/search">Add records</a></div>
-    <div class="grid3">${items.map(tile).join("")}</div>`);
+    <div style="margin-top:16px">${viewToggle()}</div>
+    <div id="cbody">${collectionBody(items, cview())}</div>`);
+  initCrate();
 }
 
 function wantRow(w, { editable }) {
@@ -784,9 +905,9 @@ function renderProfile(token = renderToken) {
 
   let content;
   if (tab === "collection") {
-    content = items.length
-      ? `<div class="grid3">${items.map(tile).join("")}</div>`
-      : `<p class="help" style="margin-top:24px">${isMe ? "Nothing in your collection yet." : `@${esc(p.username)} hasn't added any records.`}</p>`;
+    content = collectionBody(items, cview(), {
+      empty: `<p class="help" style="margin-top:24px">${isMe ? "Nothing in your collection yet." : `@${esc(p.username)} hasn't added any records.`}</p>`,
+    });
   } else {
     content = wants.length
       ? `<ul class="rows">${wants.map((w) => wantRow(w, { editable: false })).join("")}</ul>`
@@ -799,14 +920,46 @@ function renderProfile(token = renderToken) {
     ${p.bio ? `<p class="bio">${esc(p.bio)}</p>` : ""}
     <div class="stats"><div><b>${stats.records}</b>records</div><div><b>${stats.followers}</b>followers</div><div><b>${stats.following}</b>following</div></div>
     <div class="profile-actions">${actions}</div>
+    ${wallHtml()}
     <div class="seg" role="group" aria-label="Profile">
       <button data-act="ptab" data-tab="collection" aria-pressed="${tab === "collection"}">Collection</button>
       <button data-act="ptab" data-tab="wantlist" aria-pressed="${tab === "wantlist"}">Wantlist</button></div>
+    ${tab === "collection" && items.length ? `<div style="margin-top:14px">${viewToggle()}</div>` : ""}
     ${content}
     ${isMe ? `<div style="margin-top:36px;display:grid;gap:10px">
         <button class="btn btn-ghost" data-act="blocked-list">Blocked collectors</button>
         <button class="btn btn-ghost" data-act="signout">Log out</button></div>` : ""}
     ${state.api.mode === "demo" && isMe ? `<p class="demo-note">Demo mode: sample data in your browser. Nothing is saved and no real collectors are here.</p>` : ""}`);
+  if (tab === "collection" && cview() === "crate") initCrate();
+}
+
+/* ---------- the wall: ledges with records facing out ---------- */
+
+function ledges(list, render) {
+  const rows = [];
+  for (let i = 0; i < list.length; i += 3) rows.push(list.slice(i, i + 3));
+  return rows.map((r) => `<div class="ledge">${r.map(render).join("")}</div>`).join("");
+}
+
+function wallHtml() {
+  const { items, wants, isMe } = state.profile;
+  const rot = crateSort(items.filter((i) => i.featured));
+  const hunt = wants.filter((w) => w.featured);
+  if (!isMe && !rot.length && !hunt.length) return "";
+  const section = (title, kind, count, body, emptyMsg) => `
+    <div class="wall-sec">
+      <div class="wall-head"><h2 class="wall-title">${title}</h2>
+        ${isMe ? `<button class="link" data-act="wall-pick" data-kind="${kind}">${count ? "Edit" : "Pick records"}</button>` : ""}</div>
+      ${count ? body : isMe ? `<p class="wall-empty">${emptyMsg}</p>` : ""}
+    </div>`;
+  return `<section class="wall" aria-label="Profile wall">
+    ${rot.length || isMe ? section("In rotation", "own", rot.length,
+      ledges(rot, (it) => `<button class="perch" data-act="open-item" data-item="${esc(it.id)}">${coverImg(it.release, { alt: true })}</button>`),
+      "Pick up to 6 records you're spinning right now.") : ""}
+    ${hunt.length || isMe ? section("In search of", "want", hunt.length,
+      ledges(hunt, (w) => `<button class="perch" data-act="want-open" data-id="${esc(w.id)}">${coverImg(w.release, { alt: true })}<span class="price-tag">${w.any_pressing ? "Any" : "Exact"}</span></button>`),
+      "Pick up to 6 records you're hunting for. Others see them.") : ""}
+  </section>`;
 }
 
 function openEditProfile() {
@@ -871,6 +1024,45 @@ async function openBlockedList() {
     ? `<ul class="rows">${list.map((u) => `<li class="row" style="align-items:center">${avatar(u, 40)}<div class="row-main"><div class="title">@${esc(u.username)}</div></div>
         <button class="btn btn-ghost btn-sm" data-act="unblock" data-user="${esc(u.id)}">Unblock</button></li>`).join("")}</ul>`
     : `<p class="help" style="margin-top:14px">You haven't blocked anyone.</p>`;
+}
+
+/* ---------- settings, wall picker, wanted record ---------- */
+
+function openSettings() {
+  openSheet(`
+    <h2>Settings</h2>
+    <p class="sub">Pick the look of your shop. This only changes it on this device.</p>
+    <div class="themes">${THEMES.map((t) => `
+      <button class="theme" data-act="set-theme" data-id="${t.id}" aria-pressed="${document.documentElement.dataset.theme === t.id}">
+        <span class="swatch">${t.colors.map((c) => `<i style="background:${c}"></i>`).join("")}</span>
+        <span><b>${t.name}</b><small>${t.note}</small></span></button>`).join("")}</div>
+    <div class="sheet-actions"><button class="btn btn-ghost" data-close>Done</button></div>`);
+}
+
+function openWallPicker(kind) {
+  const own = kind === "own";
+  const list = own ? crateSort(state.profile.items) : state.profile.wants;
+  const n = list.filter((x) => x.featured).length;
+  openSheet(`
+    <h2>${own ? "In rotation" : "In search of"}</h2>
+    <p class="sub">${own ? "Records you're spinning right now." : "Records you're hunting. Others can see these."} Pick up to 6.</p>
+    <p class="picker-count" id="picker-count">${n} of 6 on your wall</p>
+    <ul class="rows picker-list">${list.map((x) => `
+      <li class="row tight" style="align-items:center">${coverImg(x.release)}
+        <div class="row-main"><div class="title">${esc(x.release.title)}</div><div class="artist">${esc(x.release.artist)}</div></div>
+        <label class="switch" style="padding:0"><input type="checkbox" data-act="wall-toggle" data-kind="${kind}" data-id="${esc(x.id)}" ${x.featured ? "checked" : ""} aria-label="Show ${esc(x.release.title)} on my wall"></label></li>`).join("") ||
+      `<li class="help">${own ? "Add records to your collection first." : "Add records to your wantlist first."}</li>`}</ul>
+    <div class="sheet-actions"><button class="btn btn-primary" data-close>Done</button></div>`);
+}
+
+function openWantSheet(w) {
+  const r = w.release;
+  openSheet(`
+    <div class="sheet-head">${coverImg(r)}
+      <div style="min-width:0"><h2>${esc(r.title)}</h2><p class="artist">${esc(r.artist)}</p><p class="meta">${esc(metaLine(r))}</p></div></div>
+    ${chipsHtml(r.format, `<span class="chip on">${w.any_pressing ? "Any pressing" : "This pressing only"}</span>`)}
+    <p class="help" style="margin-top:14px">${state.profile && state.profile.isMe ? "You're hunting for this one." : `@${esc(state.profile?.p.username || "")} is hunting for this one. Own it? You'll show up in their matches.`}</p>
+    <div class="sheet-actions"><button class="btn btn-ghost" data-close>Close</button></div>`);
 }
 
 /* ======================================================================
@@ -1005,6 +1197,45 @@ const ACT = {
     location.hash = "#/matches";
     refreshBadge();
   },
+  settings: () => openSettings(),
+  "set-theme": (el) => {
+    applyTheme(el.dataset.id);
+    document.querySelectorAll(".theme").forEach((b) => b.setAttribute("aria-pressed", String(b === el)));
+  },
+  cview: (el) => {
+    pref.set("cview", el.dataset.mode);
+    if (location.hash.startsWith("#/collection")) {
+      document.querySelectorAll(".view-toggle button").forEach((b) => b.setAttribute("aria-pressed", String(b === el)));
+      $("#cbody").innerHTML = collectionBody(state.collectionItems, cview());
+      initCrate();
+    } else renderProfile();
+  },
+  "crate-slot": (el) => {
+    const crate = $(".crate");
+    const idx = Number(el.dataset.idx);
+    if (Number(crate.dataset.center) === idx) openItemSheet(state.crate[idx]);
+    else crate.scrollTo({ left: idx * SLOT, behavior: "smooth" });
+  },
+  "crate-jump": (el) => $(".crate").scrollTo({ left: Number(el.dataset.idx) * SLOT, behavior: "smooth" }),
+  "wall-pick": (el) => openWallPicker(el.dataset.kind),
+  "wall-toggle": async (el) => {
+    const kind = el.dataset.kind;
+    const list = kind === "own" ? state.profile.items : state.profile.wants;
+    const row = list.find((x) => x.id === el.dataset.id);
+    const on = el.checked;
+    try {
+      if (kind === "own") await state.api.collection.update(row.id, { featured: on });
+      else await state.api.wantlist.setFeatured(row.id, on);
+    } catch (e) {
+      el.checked = !on;
+      throw e;
+    }
+    row.featured = on;
+    const n = list.filter((x) => x.featured).length;
+    $("#picker-count").textContent = `${n} of 6 on your wall`;
+    renderProfile();
+  },
+  "want-open": (el) => openWantSheet(state.wants.get(el.dataset.id)),
   "blocked-list": () => openBlockedList(),
   unblock: async (el) => {
     await state.api.safety.unblock(el.dataset.user);
@@ -1014,7 +1245,14 @@ const ACT = {
   },
 };
 
+document.addEventListener("change", (e) => {
+  const el = e.target.closest('input[data-act="wall-toggle"]');
+  if (!el) return;
+  Promise.resolve(ACT["wall-toggle"](el)).catch((err) => toast(err?.message || "Something went wrong.", true));
+});
+
 document.addEventListener("click", (e) => {
+  if (e.target.closest('input[data-act="wall-toggle"]')) return; // handled on change
   const el = e.target.closest("[data-act]");
   if (!el || !ACT[el.dataset.act]) return;
   e.preventDefault();
