@@ -438,3 +438,14 @@ body.typing .view { padding-top: 0; }
 .sort-row { display: flex; align-items: center; gap: 10px; margin: 14px 0 4px; }
 .sort-row label { color: var(--dust); font-size: 14px; white-space: nowrap; }
 .sort-row select { flex: 1; min-height: 40px; }
+
+.now-wrap { position: relative; }
+.now-toggle { display: block; margin: 4px auto 0; width: 56px; height: 28px; border: 0; background: none; color: var(--dust); }
+.now-toggle svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s; transform: rotate(180deg); }
+.now-wrap[data-open="false"] .now-toggle svg { transform: none; }
+.now .short { display: none; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.now .short span { color: var(--dust); font-weight: 400; }
+.now-wrap .now { margin-top: 4px; }
+.now-wrap[data-open="false"] .now { min-height: 0; }
+.now-wrap[data-open="false"] .now .title, .now-wrap[data-open="false"] .now .artist, .now-wrap[data-open="false"] .now .meta, .now-wrap[data-open="false"] .crate-hint { display: none; }
+.now-wrap[data-open="false"] .now .short { display: block; }

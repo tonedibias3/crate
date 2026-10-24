@@ -1,5 +1,5 @@
 import { CONFIG } from "./config.js";
-import { makeApi } from "./api.js?v=8";
+import { makeApi } from "./api.js?v=9";
 
 /* ======================================================================
    helpers
@@ -787,8 +787,11 @@ function collectionBody(items, mode, { empty = "" } = {}) {
       </div>
       <div class="crate-front" aria-hidden="true"></div>
     </div>
-    <div class="now" aria-live="polite"></div>
-    <p class="crate-hint">Swipe to flip. Tap the front record to open it.</p>`;
+    <div class="now-wrap" data-open="${pref.get("cinfo", "open") !== "closed"}">
+      <button class="now-toggle" data-act="now-toggle" aria-expanded="${pref.get("cinfo", "open") !== "closed"}" aria-label="Show or hide record details"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+      <div class="now" aria-live="polite"></div>
+      <p class="crate-hint">Swipe to flip. Tap the front record to open it.</p>
+    </div>`;
 }
 
 function initCrate() {
@@ -826,7 +829,7 @@ function initCrate() {
       const it = state.crate[c];
       if (it) {
         const r = it.release;
-        now.innerHTML = `<div class="title">${esc(r.title)}</div><div class="artist">${esc(r.artist)}</div><div class="meta">${esc([r.year, it.condition === "Not graded" ? "" : it.condition].filter(Boolean).join(", "))}</div>`;
+        now.innerHTML = `<div class="short">${esc(r.title)} <span>${esc(r.artist)}</span></div><div class="title">${esc(r.title)}</div><div class="artist">${esc(r.artist)}</div><div class="meta">${esc([r.year, it.condition === "Not graded" ? "" : it.condition].filter(Boolean).join(", "))}</div>`;
         const L = initialOf(r.artist);
         letterBtns.forEach((b) => b.setAttribute("aria-current", String(b.dataset.letter === L)));
       }
@@ -1311,6 +1314,13 @@ const ACT = {
   "set-theme": (el) => {
     applyTheme(el.dataset.id);
     document.querySelectorAll(".theme").forEach((b) => b.setAttribute("aria-pressed", String(b === el)));
+  },
+  "now-toggle": (el) => {
+    const wrap = el.closest(".now-wrap");
+    const open = wrap.dataset.open !== "true";
+    wrap.dataset.open = String(open);
+    el.setAttribute("aria-expanded", String(open));
+    pref.set("cinfo", open ? "open" : "closed");
   },
   cview: (el) => {
     pref.set("cview", el.dataset.mode);
