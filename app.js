@@ -100,6 +100,30 @@ document.addEventListener(
   true,
 );
 
+const money = (n, cur = "USD") => {
+  try { return new Intl.NumberFormat("en-US", { style: "currency", currency: cur, maximumFractionDigits: 2 }).format(n); }
+  catch { return `$${Number(n).toFixed(2)}`; }
+};
+function priceLine(p) {
+  if (!p) return "";
+  if (p.lowest === null || p.lowest === undefined) return "None for sale on Discogs right now";
+  return `From ${money(p.lowest, p.currency)} on Discogs, ${p.for_sale} for sale`;
+}
+// Fills the price row in whatever sheet is open. Safe if the sheet closes first.
+async function loadPrice(releaseId) {
+  const slot = $("#price-slot");
+  if (!slot) return;
+  try {
+    const p = await state.api.discogs.price(releaseId);
+    const now = $("#price-slot");
+    if (now && now.dataset.id === String(releaseId)) now.innerHTML = `<span class="price-main">${esc(priceLine(p))}</span><span class="price-note">Lowest current listing, not an appraisal</span>`;
+  } catch {
+    const now = $("#price-slot");
+    if (now) now.remove();
+  }
+}
+const priceSlot = (id) => `<div class="price-row" id="price-slot" data-id="${esc(id)}"><span class="price-main skel-text">Checking Discogs…</span></div>`;
+
 const fmtList = (f) =>
   (Array.isArray(f) ? f : String(f || "").split(","))
     .map((s) => s.trim())
@@ -836,7 +860,7 @@ function openItemSheet(item) {
 
   let body = `
     <div class="sleeve-stage" style="--h:${stageHue}"><div class="disc-slide"><div class="disc"></div></div>${coverImg(r, { alt: true })}</div>
-    <h2>${esc(r.title)}</h2><p class="artist">${esc(r.artist)}</p>${chipsHtml(r.format)}`;
+    <h2>${esc(r.title)}</h2><p class="artist">${esc(r.artist)}</p>${chipsHtml(r.format)}${priceSlot(item.release_id)}`;
 
   if (mine) {
     body += facts(`<div><dt>Added</dt><dd>${timeAgo(item.created_at)}</dd></div>`) + `
@@ -863,6 +887,7 @@ function openItemSheet(item) {
   const sheet = openSheet(body);
   const stage = $(".sleeve-stage", sheet);
   requestAnimationFrame(() => requestAnimationFrame(() => stage.classList.add("out")));
+  loadPrice(item.release_id);
 }
 
 async function saveItem(form) {
@@ -1064,8 +1089,10 @@ function openWantSheet(w) {
     <div class="sheet-head">${coverImg(r)}
       <div style="min-width:0"><h2>${esc(r.title)}</h2><p class="artist">${esc(r.artist)}</p><p class="meta">${esc(metaLine(r))}</p></div></div>
     ${chipsHtml(r.format, `<span class="chip on">${w.any_pressing ? "Any pressing" : "This pressing only"}</span>`)}
+    ${priceSlot(w.release_id)}
     <p class="help" style="margin-top:14px">${state.profile && state.profile.isMe ? "You're hunting for this one." : `@${esc(state.profile?.p.username || "")} is hunting for this one. Own it? You'll show up in their matches.`}</p>
     <div class="sheet-actions"><button class="btn btn-ghost" data-close>Close</button></div>`);
+  loadPrice(w.release_id);
 }
 
 /* ======================================================================

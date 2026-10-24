@@ -176,6 +176,10 @@ function makeLiveApi(sb) {
         const d = await callDiscogs({ action: "release", id });
         return d.release;
       },
+      async price(id) {
+        const d = await callDiscogs({ action: "price", id });
+        return d.price;
+      },
     },
 
     collection: {
@@ -452,6 +456,12 @@ function makeDemoApi() {
         return delay({ results: R.filter((r) => r.discogs_master_id === Number(master_id)).map(searchShape), page: 1, pages: 1 });
       },
       async release(id) { return delay({ ...rel(id) }); },
+      async price(id) {
+        // made-up but steady numbers so the demo always looks the same
+        const n = Number(id) % 7;
+        if (n === 0) return delay({ lowest: null, currency: "USD", for_sale: 0, at: new Date().toISOString() });
+        return delay({ lowest: 12 + (Number(id) % 53) + 0.99, currency: "USD", for_sale: 2 + (Number(id) % 19), at: new Date().toISOString() });
+      },
     },
 
     collection: {
