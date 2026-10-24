@@ -429,3 +429,12 @@ img { display: block; max-width: 100%; }
 body.typing .topbar, body.typing .tabs, body.typing .search-top { display: none; }
 body.typing .search-bar { top: 0; margin-top: -8px; padding-top: calc(10px + env(safe-area-inset-top)); box-shadow: 0 8px 14px -8px rgba(0,0,0,.45); }
 body.typing .view { padding-top: 0; }
+
+.search-field { position: relative; }
+.search-field .input { padding-right: 46px; }
+.search-field input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
+.search-clear { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border: 0; border-radius: 50%; background: none; color: var(--dust); font-size: 26px; line-height: 1; }
+.search-clear[hidden] { display: none; }
+.sort-row { display: flex; align-items: center; gap: 10px; margin: 14px 0 4px; }
+.sort-row label { color: var(--dust); font-size: 14px; white-space: nowrap; }
+.sort-row select { flex: 1; min-height: 40px; }

@@ -63,12 +63,18 @@ function makeLiveApi(sb) {
   }
 
   const ITEM_SELECT =
-    "id,user_id,release_id,condition,notes,featured,created_at,releases!release_id(*),profiles!user_id(username,avatar_url),likes!item_id(count)";
+    "id,user_id,release_id,condition,notes,featured,created_at,releases!release_id(*),likes!item_id(count)";
 
   async function decorate(rows) {
     const me = await uid();
     const ids = rows.map((r) => r.id);
     let liked = new Set();
+    const owners = new Map();
+    const ownerIds = [...new Set(rows.map((r) => r.user_id))];
+    if (ownerIds.length) {
+      const ps = ok(await sb.from("profiles").select("id,username,avatar_url").in("id", ownerIds));
+      for (const p of ps) owners.set(p.id, { username: p.username, avatar_url: p.avatar_url });
+    }
     if (ids.length) {
       const likes = ok(await sb.from("likes").select("item_id").eq("user_id", me).in("item_id", ids));
       liked = new Set(likes.map((l) => l.item_id));
@@ -82,7 +88,7 @@ function makeLiveApi(sb) {
       featured: Boolean(r.featured),
       created_at: r.created_at,
       release: r.releases,
-      owner: r.profiles,
+      owner: owners.get(r.user_id) ?? { username: "unknown", avatar_url: null },
       like_count: r.likes?.[0]?.count ?? 0,
       liked: liked.has(r.id),
     }));

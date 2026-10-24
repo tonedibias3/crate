@@ -1,5 +1,5 @@
 import { CONFIG } from "./config.js";
-import { makeApi } from "./api.js";
+import { makeApi } from "./api.js?v=8";
 
 /* ======================================================================
    helpers
@@ -233,7 +233,7 @@ const state = {
   wants: new Map(),
   feedMode: "following",
   mine: { owned: new Set(), wanted: new Set() },
-  search: { q: "", mode: "search", master: null, results: [], page: 1, pages: 1, loading: false, error: "", seq: 0 },
+  search: { q: "", mode: "search", master: null, results: [], page: 1, pages: 1, loading: false, error: "", seq: 0, sort: "relevance" },
   profile: null,
   matchUsers: 0,
 };
@@ -408,6 +408,7 @@ function route({ keepScroll = false } = {}) {
   $("#topbar").hidden = false;
   $("#tabs").hidden = false;
   setActiveTab(name);
+  if (name !== "search" && (state.search.q || state.search.results.length)) resetSearch();
   if (!keepScroll) window.scrollTo(0, 0);
   const views = {
     matches: () => viewMatches(token),
@@ -544,12 +545,20 @@ async function loadFeed(token) {
    search and add
    ====================================================================== */
 
+function resetSearch() {
+  const s = state.search;
+  clearTimeout(searchTimer);
+  s.seq++;
+  Object.assign(s, { q: "", mode: "search", master: null, results: [], page: 1, pages: 1, loading: false, error: "" });
+}
+
 async function viewSearch(token) {
   const s = state.search;
   if (!setView(token, `
     <div class="search-top"><h1 class="page-title">Search</h1><p class="sub">Find the exact pressing you own or want.</p></div>
-    <div class="search-bar"><input class="input" id="q" type="search" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false"
-      placeholder="Artist or album" value="${esc(s.q)}" data-input="search" aria-label="Search records"></div>
+    <div class="search-bar"><div class="search-field"><input class="input" id="q" type="search" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false"
+      placeholder="Artist or album" value="${esc(s.q)}" data-input="search" aria-label="Search records">
+      <button class="search-clear" type="button" data-act="search-clear" aria-label="Clear search"${s.q ? "" : " hidden"}>&times;</button></div></div>
     <div id="search-out"></div>`)) return;
   renderSearchOut();
   try {
@@ -575,7 +584,19 @@ function renderSearchOut() {
   if (!inVersions && s.q.length < 2 && !s.results.length) {
     html += `<p class="help" style="margin-top:20px">Try an artist, an album, or both. Pick the exact pressing so matches work.</p>`;
   } else if (s.results.length) {
-    html += `<ul class="rows">${s.results.map((r, i) => {
+    const SORTS = [["relevance", "Best match"], ["title", "Album A to Z"], ["artist", "Artist A to Z"], ["new", "Year, newest first"], ["old", "Year, oldest first"]];
+    html += `<div class="sort-row"><label for="sort">Sort by</label><select id="sort" class="input" data-input="sort">${SORTS.map(([v, l]) => `<option value="${v}"${s.sort === v ? " selected" : ""}>${l}</option>`).join("")}</select></div>`;
+    const order = s.results.map((r, i) => i);
+    const txt = (v) => String(v ?? "").toLowerCase();
+    const cmp = {
+      title: (a, b) => txt(s.results[a].title).localeCompare(txt(s.results[b].title)),
+      artist: (a, b) => txt(s.results[a].artist).localeCompare(txt(s.results[b].artist)) || txt(s.results[a].title).localeCompare(txt(s.results[b].title)),
+      new: (a, b) => (s.results[b].year || 0) - (s.results[a].year || 0),
+      old: (a, b) => (s.results[a].year || 9999) - (s.results[b].year || 9999),
+    }[s.sort];
+    if (cmp) order.sort((a, b) => cmp(a, b) || a - b);
+    html += `<ul class="rows">${order.map((i) => {
+      const r = s.results[i];
       const own = state.mine.owned.has(r.id);
       const want = state.mine.wanted.has(r.id);
       const extra = (own ? '<span class="chip on">In your collection</span>' : "") + (want ? '<span class="chip on">On your wantlist</span>' : "");
@@ -637,8 +658,11 @@ document.addEventListener("touchmove", (e) => {
 
 let searchTimer;
 document.addEventListener("input", (e) => {
+  if (e.target.dataset?.input === "sort") { state.search.sort = e.target.value; renderSearchOut(); return; }
   if (e.target.dataset?.input !== "search") return;
   const s = state.search;
+  const clr = $(".search-clear");
+  if (clr) clr.hidden = !e.target.value;
   clearTimeout(searchTimer);
   s.q = e.target.value.trim();
   s.mode = "search";
@@ -1208,6 +1232,14 @@ const ACT = {
     s.mode = "search";
     s.master = null;
     runSearch(true);
+  },
+  "search-clear": () => {
+    resetSearch();
+    const q = $("#q");
+    if (q) { q.value = ""; q.focus(); }
+    const clr = $(".search-clear");
+    if (clr) clr.hidden = true;
+    renderSearchOut();
   },
   "search-more": () => { state.search.page += 1; runSearch(false); },
 
