@@ -63,7 +63,7 @@ function makeLiveApi(sb) {
   }
 
   const ITEM_SELECT =
-    "id,user_id,release_id,condition,notes,featured,created_at,releases(*),profiles(username,avatar_url),likes(count)";
+    "id,user_id,release_id,condition,notes,featured,created_at,releases!release_id(*),profiles!user_id(username,avatar_url),likes!item_id(count)";
 
   async function decorate(rows) {
     const me = await uid();
@@ -219,7 +219,7 @@ function makeLiveApi(sb) {
         return ok(
           await sb
             .from("wantlist_items")
-            .select("id,user_id,release_id,master_id,any_pressing,featured,created_at,releases(*)")
+            .select("id,user_id,release_id,master_id,any_pressing,featured,created_at,releases!release_id(*)")
             .eq("user_id", userId)
             .order("created_at", { ascending: false }),
         ).map((w) => ({ ...w, release_id: Number(w.release_id), release: w.releases }));
