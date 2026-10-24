@@ -11,7 +11,18 @@ const view = $("#view");
 const esc = (s) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
-const CONDITIONS = ["Mint", "Near Mint", "Very Good Plus", "Very Good", "Good", "Fair", "Poor"];
+const CONDITIONS = ["Not graded", "Mint", "Near Mint", "Very Good Plus", "Very Good", "Good", "Fair", "Poor"];
+const GRADE_GUIDE = `<details class="grade-guide"><summary>What do the grades mean?</summary>
+  <dl>
+    <dt>Not graded</dt><dd>You haven't checked. That's fine, most people start here.</dd>
+    <dt>Mint</dt><dd>Perfect. Usually still sealed.</dd>
+    <dt>Near Mint</dt><dd>Looks almost new. Barely played, no visible flaws.</dd>
+    <dt>Very Good Plus</dt><dd>Light wear. A few faint marks, plays great.</dd>
+    <dt>Very Good</dt><dd>Visible wear and some surface noise, still plays well.</dd>
+    <dt>Good</dt><dd>Heavy wear and noise. Plays all the way through.</dd>
+    <dt>Fair / Poor</dt><dd>Damaged. Skips or is badly scratched.</dd>
+  </dl>
+  <p class="help">To grade, pull the record out and tilt the vinyl under a bright light. Be honest, buyers will check.</p></details>`;
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 
 const ICON = {
@@ -631,7 +642,8 @@ function openAddSheet(result) {
     </div>
     <form data-form="add" data-id="${esc(result.id)}" style="margin-top:16px">
       <div data-panel="own">
-        <label class="field"><span>Condition</span><select class="select" name="condition">${CONDITIONS.map((c) => `<option ${c === "Very Good Plus" ? "selected" : ""}>${c}</option>`).join("")}</select></label>
+        <label class="field"><span>Condition</span><select class="select" name="condition">${CONDITIONS.map((c) => `<option ${c === "Not graded" ? "selected" : ""}>${c}</option>`).join("")}</select></label>
+        ${GRADE_GUIDE}
         <label class="field"><span>Notes (optional)</span><textarea class="textarea" name="notes" maxlength="500" placeholder="Where you found it, pressing details, anything else"></textarea></label>
       </div>
       <div data-panel="want" hidden>
@@ -763,7 +775,7 @@ function initCrate() {
       const it = state.crate[c];
       if (it) {
         const r = it.release;
-        now.innerHTML = `<div class="title">${esc(r.title)}</div><div class="artist">${esc(r.artist)}</div><div class="meta">${esc([r.year, it.condition].filter(Boolean).join(", "))}</div>`;
+        now.innerHTML = `<div class="title">${esc(r.title)}</div><div class="artist">${esc(r.artist)}</div><div class="meta">${esc([r.year, it.condition === "Not graded" ? "" : it.condition].filter(Boolean).join(", "))}</div>`;
         const L = initialOf(r.artist);
         letterBtns.forEach((b) => b.setAttribute("aria-current", String(b.dataset.letter === L)));
       }
@@ -866,6 +878,7 @@ function openItemSheet(item) {
     body += facts(`<div><dt>Added</dt><dd>${timeAgo(item.created_at)}</dd></div>`) + `
       <form data-form="edit-item" data-id="${esc(item.id)}" style="margin-top:20px">
         <label class="field"><span>Condition</span><select class="select" name="condition">${CONDITIONS.map((c) => `<option ${c === item.condition ? "selected" : ""}>${c}</option>`).join("")}</select></label>
+        ${GRADE_GUIDE}
         <label class="field"><span>Notes</span><textarea class="textarea" name="notes" maxlength="500" placeholder="Where you found it, pressing details, anything else">${esc(item.notes)}</textarea></label>
         <p class="help">${plural(item.like_count, "like", "likes")}</p>
         <div class="sheet-actions"><button class="btn btn-primary" type="submit">Save changes</button>

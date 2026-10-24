@@ -416,3 +416,10 @@ img { display: block; max-width: 100%; }
 .price-main { display: block; font-weight: 600; color: var(--accent-ink); }
 .price-note { display: block; margin-top: 2px; font-size: 12px; color: var(--dust); }
 .skel-text { color: var(--dust); font-weight: 400; }
+
+/* ---------- grade guide ---------- */
+.grade-guide { margin-top: 10px; font-size: 14px; color: var(--dust); }
+.grade-guide summary { cursor: pointer; color: var(--accent-ink); font-weight: 500; padding: 4px 0; }
+.grade-guide dl { margin: 8px 0 0; display: grid; gap: 8px; }
+.grade-guide dt { color: var(--bone); font-weight: 600; }
+.grade-guide dd { margin: 0; }
