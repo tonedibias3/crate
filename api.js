@@ -114,9 +114,22 @@ function makeLiveApi(sb) {
         if (error) throw fail(error);
         return { needsConfirm: !data.session };
       },
-      async signIn({ email, password }) {
-        const { error } = await sb.auth.signInWithPassword({ email, password });
-        if (error) throw fail(error);
+      // identifier is an email or a username
+      async signIn({ identifier, password }) {
+        const id = String(identifier || "").trim();
+        if (id.includes("@")) {
+          const { error } = await sb.auth.signInWithPassword({ email: id, password });
+          if (error) throw fail(error);
+          return;
+        }
+        const { data, error } = await sb.functions.invoke("signin", { body: { username: id, password } });
+        if (error) {
+          let msg = "";
+          try { msg = (await error.context.json())?.error; } catch { /* generic below */ }
+          throw new Error(msg || "Couldn't log in. Check your connection and try again.");
+        }
+        const { error: setErr } = await sb.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
+        if (setErr) throw fail(setErr);
       },
       async signOut() {
         await sb.auth.signOut();

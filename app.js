@@ -307,8 +307,12 @@ function renderAuth(mode = "login", notice = "") {
             <div class="help">3 to 20 letters, numbers or underscores. Others see this.</div></label>
           <label class="field"><span>City (optional)</span>
             <input class="input" name="city" autocomplete="address-level2" maxlength="60" placeholder="Augusta, GA"></label>` : ""}
-        <label class="field"><span>Email</span>
-          <input class="input" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" placeholder="you@example.com"></label>
+        ${signup
+          ? `<label class="field"><span>Email</span>
+          <input class="input" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" placeholder="you@example.com">
+          <div class="help">Only used to reset your password. Others never see it.</div></label>`
+          : `<label class="field"><span>Username or email</span>
+          <input class="input" name="identifier" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="username or you@example.com"></label>`}
         <label class="field"><span>Password</span>
           <span class="pw"><input class="input" name="password" type="password" autocomplete="${signup ? "new-password" : "current-password"}" placeholder="${signup ? "At least 8 characters" : "Your password"}">
           <button type="button" class="eye" data-act="toggle-pw" aria-label="Show password" aria-pressed="false">${ICON.eye}</button></span></label>
@@ -325,14 +329,21 @@ async function submitAuth(form) {
   const mode = form.dataset.mode;
   const f = new FormData(form);
   const email = String(f.get("email") || "").trim();
+  const identifier = String(f.get("identifier") || "").trim();
   const password = String(f.get("password") || "");
   const errBox = $("#auth-error");
   const showErr = (m) => { errBox.textContent = m; errBox.hidden = false; };
   errBox.hidden = true;
   const btn = form.querySelector('button[type="submit"]');
 
-  if (!/^\S+@\S+\.\S+$/.test(email)) return showErr("Enter a valid email address.");
-  if (password.length < 8) return showErr("Use a password with at least 8 characters.");
+  if (mode === "signup") {
+    if (!/^\S+@\S+\.\S+$/.test(email)) return showErr("Enter a valid email address.");
+    if (password.length < 8) return showErr("Use a password with at least 8 characters.");
+  } else {
+    if (!identifier) return showErr("Enter your username or email.");
+    if (!password) return showErr("Enter your password.");
+    if (identifier.includes("@") && !/^\S+@\S+\.\S+$/.test(identifier)) return showErr("That email doesn't look right.");
+  }
 
   btn.disabled = true;
   const label = btn.textContent;
@@ -346,7 +357,7 @@ async function submitAuth(form) {
       const { needsConfirm } = await state.api.auth.signUp({ email, password, username, city });
       if (needsConfirm) return renderAuth("login", "Account created. Check your email for a confirmation link, then log in.");
     } else {
-      await state.api.auth.signIn({ email, password });
+      await state.api.auth.signIn({ identifier, password });
     }
     handleSession(await state.api.auth.session());
   } catch (e) {
