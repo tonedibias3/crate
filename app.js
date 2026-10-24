@@ -547,8 +547,8 @@ async function loadFeed(token) {
 async function viewSearch(token) {
   const s = state.search;
   if (!setView(token, `
-    <h1 class="page-title">Search</h1><p class="sub">Find the exact pressing you own or want.</p>
-    <div style="margin-top:18px"><input class="input" id="q" type="search" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false"
+    <div class="search-top"><h1 class="page-title">Search</h1><p class="sub">Find the exact pressing you own or want.</p></div>
+    <div class="search-bar"><input class="input" id="q" type="search" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false"
       placeholder="Artist or album" value="${esc(s.q)}" data-input="search" aria-label="Search records"></div>
     <div id="search-out"></div>`)) return;
   renderSearchOut();
@@ -618,6 +618,17 @@ async function runSearch(reset = true) {
   s.loading = false;
   renderSearchOut();
 }
+
+// While typing, hide the bars so the keyboard leaves room for results.
+// Return/Search closes the keyboard, and so does scrolling the results.
+document.addEventListener("focusin", (e) => { if (e.target.dataset?.input === "search") document.body.classList.add("typing"); });
+document.addEventListener("focusout", (e) => { if (e.target.dataset?.input === "search") document.body.classList.remove("typing"); });
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && e.target.dataset?.input === "search") { e.preventDefault(); clearTimeout(searchTimer); if (state.search.q.length >= 2) runSearch(true); e.target.blur(); }
+});
+document.addEventListener("touchmove", (e) => {
+  if (document.body.classList.contains("typing") && !e.target.closest(".search-bar")) document.activeElement?.blur?.();
+}, { passive: true });
 
 let searchTimer;
 document.addEventListener("input", (e) => {
