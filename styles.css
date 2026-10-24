@@ -403,3 +403,10 @@ img { display: block; max-width: 100%; }
 .picker-list { max-height: 52dvh; overflow-y: auto; margin-top: 6px; }
 
 @media (prefers-reduced-motion: reduce) { .crate { scroll-behavior: auto; } }
+
+/* ---------- password eye ---------- */
+.pw { position: relative; display: block; }
+.pw .input { padding-right: 52px; }
+.pw .eye { position: absolute; top: 0; right: 0; width: 48px; height: 100%; display: grid; place-items: center; background: none; border: 0; color: var(--dust); }
+.pw .eye svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.pw .eye[aria-pressed="true"] { color: var(--accent-ink); }
