@@ -216,7 +216,7 @@ const remember = (items) => items.forEach((i) => state.items.set(i.id, i));
 function renderChrome() {
   const demoTag = state.api.mode === "demo" ? '<span class="demo-tag">Demo</span>' : "";
   $("#topbar").innerHTML =
-    `<a class="wordmark" href="#/matches" aria-label="Crate home"><span class="dot"></span>Crate${demoTag}</a>` +
+    `<a class="wordmark" href="#/matches" aria-label="White Whale home"><span class="dot"></span>White Whale${demoTag}</a>` +
     `<div class="topbar-right"><button class="icon-btn" data-act="settings" aria-label="Settings">${ICON.gear}</button>` +
     `<a class="avatar-btn" href="#/u/${esc(state.me.username)}" aria-label="Your profile">${avatar(state.me, 36)}</a></div>`;
   $("#tabs").innerHTML = TABS.map(
@@ -261,7 +261,7 @@ function renderAuth(mode = "login", notice = "") {
   const signup = mode === "signup";
   view.innerHTML = `
     <section class="auth">
-      <div class="wordmark"><span class="dot"></span>Crate</div>
+      <div class="wordmark"><span class="dot"></span>White Whale</div>
       <p class="tagline">Show your collection. Find who has the record you're hunting.</p>
       <form data-form="auth" data-mode="${mode}" novalidate>
         ${signup ? `

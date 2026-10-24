@@ -1,4 +1,4 @@
-/* Crate: phone-first. A record shop at night by default (Walnut). Themes only swap these tokens. */
+/* White Whale: phone-first. A record shop at night by default (Walnut). Themes only swap these tokens. */
 
 :root, :root[data-theme="walnut"] {
   --grain: repeating-linear-gradient(92deg, rgba(0,0,0,.07) 0 2px, transparent 2px 7px, rgba(255,220,170,.035) 7px 8px, transparent 8px 15px);

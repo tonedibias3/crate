@@ -1,4 +1,4 @@
-// Crate data layer. Two implementations with the same shape:
+// White Whale data layer. Two implementations with the same shape:
 //   live: Supabase (accounts, database, Discogs lookups through the edge function)
 //   demo: sample data in memory, nothing saved (add ?demo=1 to the address)
 
